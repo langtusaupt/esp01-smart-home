@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ESP-01 Smart Home - Hệ thống điều khiển nhà thông minh qua Internet. Quản lý relay từ xa bằng ESP-01 và Firebase.">
+    <title>ESP-01 Smart Home</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <!-- ===== LOADING OVERLAY ===== -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Đang tải...</p>
+    </div>
+
+    <!-- ===== PHẦN ĐĂNG NHẬP / ĐĂNG KÝ ===== -->
+    <section id="auth-section" class="auth-section" style="display: none;">
+        <div class="auth-container">
+            <!-- Background decoration -->
+            <div class="auth-bg-orb auth-bg-orb-1"></div>
+            <div class="auth-bg-orb auth-bg-orb-2"></div>
+
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect width="48" height="48" rx="12" fill="url(#logo-gradient)"/>
+                            <path d="M24 12L14 18V30L24 36L34 30V18L24 12Z" stroke="white" stroke-width="2" fill="none"/>
+                            <circle cx="24" cy="24" r="4" fill="white"/>
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0" y1="0" x2="48" y2="48">
+                                    <stop offset="0%" stop-color="#6366f1"/>
+                                    <stop offset="100%" stop-color="#8b5cf6"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1>ESP-01 Smart Home</h1>
+                    <p class="auth-subtitle" id="auth-subtitle">Đăng nhập để điều khiển thiết bị</p>
+                </div>
+
+                <!-- Auth Form -->
+                <form id="auth-form" onsubmit="return false;">
+                    <div id="name-field" class="form-group" style="display: none;">
+                        <label for="auth-name">Họ và tên</label>
+                        <input type="text" id="auth-name" placeholder="Nhập họ tên của bạn" autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-email">Email</label>
+                        <input type="email" id="auth-email" placeholder="you@example.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-password">Mật khẩu</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="auth-password" placeholder="Tối thiểu 6 ký tự" required minlength="6" autocomplete="current-password">
+                            <button type="button" class="password-toggle" id="toggle-password" aria-label="Hiện mật khẩu">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="auth-error" class="auth-error" style="display: none;"></div>
+
+                    <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-full">
+                        <span id="auth-btn-text">Đăng nhập</span>
+                        <div class="btn-spinner" style="display: none;"></div>
+                    </button>
+                </form>
+
+                <div class="auth-switch">
+                    <span id="auth-switch-text">Chưa có tài khoản?</span>
+                    <button type="button" id="auth-switch-btn" class="btn-link">Đăng ký</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== PHẦN DASHBOARD ===== -->
+    <section id="app-section" class="app-section" style="display: none;">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-logo">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+                        <rect width="48" height="48" rx="12" fill="url(#logo-gradient-sm)"/>
+                        <path d="M24 12L14 18V30L24 36L34 30V18L24 12Z" stroke="white" stroke-width="2" fill="none"/>
+                        <circle cx="24" cy="24" r="4" fill="white"/>
+                        <defs>
+                            <linearGradient id="logo-gradient-sm" x1="0" y1="0" x2="48" y2="48">
+                                <stop offset="0%" stop-color="#6366f1"/>
+                                <stop offset="100%" stop-color="#8b5cf6"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="header-title">Smart Home</h2>
+                    <p class="header-email" id="user-email-display"></p>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="btn-logout" class="btn btn-ghost" title="Đăng xuất">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span class="btn-label-desktop">Đăng xuất</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-value" id="stat-total">0</span>
+                    <span class="stat-label">Thiết bị</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value stat-online" id="stat-online">0</span>
+                    <span class="stat-label">Trực tuyến</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value stat-active" id="stat-active">0</span>
+                    <span class="stat-label">Đang bật</span>
+                </div>
+            </div>
+
+            <!-- Devices Grid -->
+            <div class="section-header">
+                <h3>Thiết bị của tôi</h3>
+                <button id="btn-add-device" class="btn btn-accent">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Thêm thiết bị
+                </button>
+            </div>
+
+            <div id="devices-grid" class="devices-grid">
+                <!-- Device cards sẽ được render bởi JavaScript -->
+            </div>
+
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                    <polyline points="17 2 12 7 7 2"/>
+                </svg>
+                <h4>Chưa có thiết bị nào</h4>
+                <p>Nhấn <strong>"Thêm thiết bị"</strong> để bắt đầu kết nối ESP-01 của bạn.</p>
+            </div>
+        </main>
+    </section>
+
+    <!-- ===== MODAL: THÊM THIẾT BỊ ===== -->
+    <div id="add-device-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Thêm thiết bị mới</h3>
+                <button id="btn-close-modal" class="btn-icon" aria-label="Đóng">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="add-device-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="device-chip-id">Chip ID</label>
+                    <input type="text" id="device-chip-id" placeholder="Ví dụ: A1B2C3 (xem trong Serial Monitor)" required>
+                    <span class="form-hint">Chip ID được in ra Serial Monitor khi ESP-01 khởi động</span>
+                </div>
+                <div class="form-group">
+                    <label for="device-name">Tên thiết bị</label>
+                    <input type="text" id="device-name" placeholder="Ví dụ: Đèn phòng khách" required>
+                </div>
+                <div id="add-device-error" class="auth-error" style="display: none;"></div>
+                <div class="modal-actions">
+                    <button type="button" id="btn-cancel-add" class="btn btn-ghost">Hủy</button>
+                    <button type="submit" id="btn-confirm-add" class="btn btn-primary">
+                        <span id="add-btn-text">Thêm thiết bị</span>
+                        <div class="btn-spinner" style="display: none;"></div>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: XÁC NHẬN XÓA ===== -->
+    <div id="delete-device-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card modal-card-sm">
+            <div class="modal-header">
+                <h3>Xóa thiết bị</h3>
+                <button class="btn-icon btn-close-delete-modal" aria-label="Đóng">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="delete-message">Bạn có chắc muốn xóa thiết bị <strong id="delete-device-name"></strong>?</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost btn-close-delete-modal">Hủy</button>
+                <button type="button" id="btn-confirm-delete" class="btn btn-danger">Xóa thiết bị</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
