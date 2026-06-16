@@ -12,13 +12,13 @@
 
 // ⚠️ THAY CÁC GIÁ TRỊ BÊN DƯỚI BẰNG THÔNG TIN FIREBASE CỦA BẠN
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCvveBbz-V3OGF6lZ8etlHQw_ydfu6J9eY",
+  authDomain: "esp01-smarthome.firebaseapp.com",
+  databaseURL: "https://esp01-smarthome-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "esp01-smarthome",
+  storageBucket: "esp01-smarthome.firebasestorage.app",
+  messagingSenderId: "49237615529",
+  appId: "1:49237615529:web:83a851940b18f97ed04db8"
 };
 
 // Khởi tạo Firebase
