@@ -12,7 +12,7 @@
 
 // ⚠️ THAY CÁC GIÁ TRỊ BÊN DƯỚI BẰNG THÔNG TIN FIREBASE CỦA BẠN
 const firebaseConfig = {
-  apiKey: "AIzaSyCvveBbz-V3OGF6lZ8etlHQw_ydfu6J9eY",
+  apiKey: "AIzaSyCVveBbz-V3OGF6lZ8etlHQw_ydfu6J9eY",
   authDomain: "esp01-smarthome.firebaseapp.com",
   databaseURL: "https://esp01-smarthome-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "esp01-smarthome",
