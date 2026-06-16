@@ -1,6 +1,7 @@
 /* ===================================================================
- *  ESP-01 Smart Home - Stylesheet
+ *  ESP-01 Nhà Thông Minh — Stylesheet v2.0
  *  Design: Dark Mode, Glassmorphism, Micro-Animations
+ *  Cải tiến: Offline/Online states, Device details, Chip ID guide
  * =================================================================== */
 
 /* ===== RESET & BASE ===== */
@@ -36,6 +37,7 @@
   --danger: #ef4444;
   --danger-soft: rgba(239, 68, 68, 0.15);
   --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
 
   /* Borders & Surfaces */
   --border: rgba(255, 255, 255, 0.08);
@@ -536,7 +538,7 @@ body {
 /* ===== DEVICES GRID ===== */
 .devices-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
@@ -570,6 +572,7 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* Card khi thiết bị ĐANG BẬT */
 .device-card.active {
   border-color: rgba(99, 102, 241, 0.3);
   box-shadow: 0 0 24px rgba(99, 102, 241, 0.08);
@@ -585,11 +588,32 @@ body {
   background: linear-gradient(90deg, var(--accent), #8b5cf6);
 }
 
+/* Card khi thiết bị OFFLINE */
+.device-card.offline-card {
+  opacity: 0.7;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.device-card.offline-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--danger), #f97316);
+  opacity: 0.6;
+}
+
+.device-card.offline-card:hover {
+  opacity: 0.85;
+}
+
 .device-card-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .device-info {
@@ -629,8 +653,8 @@ body {
 }
 
 .device-status.offline {
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .status-dot {
@@ -647,7 +671,7 @@ body {
 }
 
 .offline .status-dot {
-  background: var(--text-muted);
+  background: var(--danger);
 }
 
 @keyframes pulse-dot {
@@ -655,15 +679,34 @@ body {
   50% { opacity: 0.4; }
 }
 
+/* ===== DEVICE DETAILS SECTION ===== */
+.device-details-section {
+  margin-bottom: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.device-detail {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+  line-height: 1.5;
+}
+
+.device-detail-muted {
+  color: var(--text-muted);
+}
+
+.device-detail-warning {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+/* ===== DEVICE CARD BOTTOM ===== */
 .device-card-bottom {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.device-meta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  justify-content: flex-end;
 }
 
 .device-actions {
@@ -731,7 +774,7 @@ body {
 }
 
 .toggle-switch input:disabled + .toggle-slider {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -758,6 +801,42 @@ body {
   font-size: 0.875rem;
   max-width: 320px;
   margin: 0 auto;
+}
+
+/* ===== CHIP ID GUIDE (trong modal thêm thiết bị) ===== */
+.chipid-guide {
+  display: flex;
+  gap: 12px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.chipid-guide-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.chipid-guide-text {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.chipid-guide-text strong {
+  color: var(--accent-hover);
+}
+
+.chipid-guide-text ol {
+  margin: 6px 0 0 16px;
+  padding: 0;
+}
+
+.chipid-guide-text ol li {
+  margin-bottom: 3px;
 }
 
 /* ===== MODAL ===== */
@@ -937,6 +1016,11 @@ body {
   .toast {
     min-width: unset;
     max-width: unset;
+  }
+
+  .chipid-guide {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 

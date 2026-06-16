@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ESP-01 Smart Home - Hệ thống điều khiển nhà thông minh qua Internet. Quản lý relay từ xa bằng ESP-01 và Firebase.">
-    <title>ESP-01 Smart Home</title>
+    <meta name="description" content="ESP-01 Nhà Thông Minh - Hệ thống điều khiển thiết bị từ xa qua Internet. Quản lý relay, giám sát trạng thái thời gian thực.">
+    <title>Nhà Thông Minh ESP-01</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,7 +49,7 @@
                             </defs>
                         </svg>
                     </div>
-                    <h1>ESP-01 Smart Home</h1>
+                    <h1>Nhà Thông Minh</h1>
                     <p class="auth-subtitle" id="auth-subtitle">Đăng nhập để điều khiển thiết bị</p>
                 </div>
 
@@ -112,7 +112,7 @@
                     </svg>
                 </div>
                 <div>
-                    <h2 class="header-title">Smart Home</h2>
+                    <h2 class="header-title">Nhà Thông Minh</h2>
                     <p class="header-email" id="user-email-display"></p>
                 </div>
             </div>
@@ -185,11 +185,26 @@
                     </svg>
                 </button>
             </div>
+
+            <!-- Hướng dẫn lấy Chip ID -->
+            <div class="chipid-guide">
+                <div class="chipid-guide-icon">📱</div>
+                <div class="chipid-guide-text">
+                    <strong>Cách lấy mã thiết bị:</strong>
+                    <ol>
+                        <li>Cấp nguồn cho thiết bị ESP-01</li>
+                        <li>Dùng điện thoại kết nối WiFi <strong>"NhaThongMinh-XXXX"</strong></li>
+                        <li>Mở trình duyệt → truy cập <strong>192.168.4.1</strong></li>
+                        <li>Mã thiết bị hiển thị to trên trang cài đặt</li>
+                    </ol>
+                </div>
+            </div>
+
             <form id="add-device-form" onsubmit="return false;">
                 <div class="form-group">
-                    <label for="device-chip-id">Chip ID</label>
-                    <input type="text" id="device-chip-id" placeholder="Ví dụ: A1B2C3 (xem trong Serial Monitor)" required>
-                    <span class="form-hint">Chip ID được in ra Serial Monitor khi ESP-01 khởi động</span>
+                    <label for="device-chip-id">Mã thiết bị (Chip ID)</label>
+                    <input type="text" id="device-chip-id" placeholder="Ví dụ: A1B2C3" required>
+                    <span class="form-hint">Nhập mã thiết bị từ trang cài đặt WiFi của ESP-01</span>
                 </div>
                 <div class="form-group">
                     <label for="device-name">Tên thiết bị</label>

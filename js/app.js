@@ -1,7 +1,12 @@
 /**
  * ===================================================================
- *  App Module - Quản lý thiết bị & Điều khiển Relay
- *  Lắng nghe realtime từ Firebase Realtime Database
+ *  App Module — Quản lý thiết bị & Điều khiển Relay
+ * ===================================================================
+ *  CẢI TIẾN CHÍNH:
+ *  - Phát hiện offline bằng Firebase Server Timestamp
+ *  - Auto-refresh timer mỗi 15 giây
+ *  - Hiển thị chi tiết: uptime, RSSI icon, thời gian cập nhật cuối
+ *  - Disable toggle khi thiết bị offline
  * ===================================================================
  */
 
@@ -36,9 +41,12 @@ let userDevicesRef = null;
 let deviceListeners = {};
 let localDevices = {};
 let deleteTargetChipId = null;
+let statusRefreshTimer = null;
 
-// Ngưỡng xác định offline (ms) - 60 giây không có heartbeat = offline
+// Ngưỡng xác định offline — 60 giây không có heartbeat = offline
 const OFFLINE_THRESHOLD_MS = 60000;
+// Tần suất kiểm tra lại trạng thái online/offline
+const STATUS_REFRESH_INTERVAL = 15000;
 
 // ===== KHỞI TẠO APP (Gọi từ auth.js) =====
 function initApp(user) {
@@ -50,11 +58,17 @@ function initApp(user) {
   userDevicesRef = db.ref('user_devices/' + user.uid);
   userDevicesRef.on('value', onUserDevicesChanged);
 
+  // Bắt đầu timer kiểm tra trạng thái định kỳ
+  startStatusRefreshTimer();
+
   console.log('[App] Đã khởi tạo cho user:', user.email);
 }
 
 // ===== CLEANUP (Gọi từ auth.js khi logout) =====
 function cleanupApp() {
+  // Dừng timer
+  stopStatusRefreshTimer();
+
   // Gỡ tất cả listener
   if (userDevicesRef) {
     userDevicesRef.off();
@@ -75,6 +89,34 @@ function cleanupApp() {
   console.log('[App] Đã cleanup.');
 }
 
+// ===== TIMER KIỂM TRA TRẠNG THÁI =====
+// Quan trọng: Firebase realtime chỉ fire khi DỮ LIỆU thay đổi.
+// Khi ESP offline, KHÔNG CÓ thay đổi nào → web không biết.
+// Timer này kiểm tra lại mỗi 15 giây để phát hiện thiết bị offline.
+
+function startStatusRefreshTimer() {
+  stopStatusRefreshTimer();
+  statusRefreshTimer = setInterval(() => {
+    refreshAllDeviceStatus();
+  }, STATUS_REFRESH_INTERVAL);
+}
+
+function stopStatusRefreshTimer() {
+  if (statusRefreshTimer) {
+    clearInterval(statusRefreshTimer);
+    statusRefreshTimer = null;
+  }
+}
+
+function refreshAllDeviceStatus() {
+  Object.keys(localDevices).forEach((chipId) => {
+    const data = localDevices[chipId];
+    const isOnline = isDeviceOnline(data);
+    updateDeviceCard(chipId, data, isOnline);
+  });
+  updateStats();
+}
+
 // ===== LISTENER: DANH SÁCH THIẾT BỊ CỦA USER =====
 function onUserDevicesChanged(snapshot) {
   const userDeviceIds = snapshot.val() || {};
@@ -84,7 +126,6 @@ function onUserDevicesChanged(snapshot) {
   const currentChipIds = Object.keys(localDevices);
   currentChipIds.forEach((chipId) => {
     if (!newChipIds.includes(chipId)) {
-      // Thiết bị đã bị xóa → gỡ listener và card
       if (deviceListeners[chipId]) {
         deviceListeners[chipId].off();
         delete deviceListeners[chipId];
@@ -123,10 +164,8 @@ function onDeviceDataChanged(chipId, snapshot) {
 
   localDevices[chipId] = data;
 
-  // Xác định online/offline dựa vào lastSeen
   const isOnline = isDeviceOnline(data);
 
-  // Tạo hoặc cập nhật card
   let card = document.getElementById('device-' + chipId);
   if (!card) {
     card = createDeviceCard(chipId, data, isOnline);
@@ -138,36 +177,114 @@ function onDeviceDataChanged(chipId, snapshot) {
   updateStats();
 }
 
-// ===== XÁC ĐỊNH THIẾT BỊ ONLINE/OFFLINE =====
+// ===== XÁC ĐỊNH THIẾT BỊ ONLINE/OFFLINE (CẢI TIẾN) =====
+// Dùng Firebase Server Timestamp thay vì tin tưởng field "online"
 function isDeviceOnline(deviceData) {
-  if (!deviceData.online) return false;
-  // Nếu lastSeen là giá trị millis() từ ESP, ta không so sánh chính xác được
-  // Thay vào đó dựa vào field online mà ESP cập nhật
-  return deviceData.online === true;
+  if (!deviceData.lastSeen || typeof deviceData.lastSeen !== 'number') {
+    return false;
+  }
+  const now = Date.now();
+  const elapsed = now - deviceData.lastSeen;
+  return elapsed < OFFLINE_THRESHOLD_MS;
+}
+
+// ===== HELPER: TÍNH THỜI GIAN TƯƠNG ĐỐI =====
+function timeAgo(timestamp) {
+  if (!timestamp || typeof timestamp !== 'number') return 'Chưa xác định';
+  const now = Date.now();
+  const diff = now - timestamp;
+
+  if (diff < 10000) return 'Vừa xong';
+  if (diff < 60000) return Math.floor(diff / 1000) + ' giây trước';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' phút trước';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' giờ trước';
+  
+  // Hiển thị ngày giờ cụ thể nếu > 24h
+  const date = new Date(timestamp);
+  return date.toLocaleString('vi-VN', { 
+    hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: '2-digit' 
+  });
+}
+
+// ===== HELPER: ĐỊNH DẠNG UPTIME =====
+function formatUptime(seconds) {
+  if (!seconds || seconds < 0) return '';
+  if (seconds < 60) return seconds + 'giây';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'p ' + (seconds % 60) + 'giây';
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return hours + 'h ' + mins + 'p';
+}
+
+// ===== HELPER: ICON CƯỜNG ĐỘ WIFI =====
+function rssiIcon(rssi) {
+  if (!rssi) return '';
+  if (rssi >= -50) return '📶'; // Mạnh
+  if (rssi >= -70) return '📶'; // Trung bình
+  return '📡';                   // Yếu
+}
+
+function rssiLabel(rssi) {
+  if (!rssi) return '';
+  if (rssi >= -50) return 'Mạnh';
+  if (rssi >= -70) return 'Trung bình';
+  return 'Yếu';
 }
 
 // ===== TẠO DEVICE CARD =====
 function createDeviceCard(chipId, data, isOnline) {
   const card = document.createElement('div');
   card.id = 'device-' + chipId;
-  card.className = 'device-card' + (data.state ? ' active' : '');
+  card.className = 'device-card' + (data.state ? ' active' : '') + (!isOnline ? ' offline-card' : '');
 
-  card.innerHTML = `
+  card.innerHTML = buildCardHTML(chipId, data, isOnline);
+  return card;
+}
+
+function buildCardHTML(chipId, data, isOnline) {
+  const statusClass = isOnline ? 'online' : 'offline';
+  const statusText = isOnline ? 'Trực tuyến' : 'Mất kết nối';
+  const toggleDisabled = !isOnline ? 'disabled' : '';
+
+  // Thông tin chi tiết khi online
+  let detailHtml = '';
+  if (isOnline) {
+    const parts = [];
+    if (data.rssi) parts.push(rssiIcon(data.rssi) + ' ' + rssiLabel(data.rssi) + ' (' + data.rssi + 'dBm)');
+    if (data.ip) parts.push('IP: ' + data.ip);
+    detailHtml = '<div class="device-detail">' + parts.join(' • ') + '</div>';
+
+    if (data.uptime) {
+      detailHtml += '<div class="device-detail">⏱ Hoạt động: ' + formatUptime(data.uptime) + '</div>';
+    }
+    detailHtml += '<div class="device-detail device-detail-muted">🕐 Cập nhật: ' + timeAgo(data.lastSeen) + '</div>';
+  } else {
+    // Thông tin khi offline
+    detailHtml = '<div class="device-detail device-detail-warning">⚠️ ' + timeAgo(data.lastSeen) + '</div>';
+    if (data.lastSeen) {
+      const date = new Date(data.lastSeen);
+      detailHtml += '<div class="device-detail device-detail-muted">🕐 Lần cuối: ' + 
+        date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) + 
+        '</div>';
+    }
+  }
+
+  return `
     <div class="device-card-top">
       <div class="device-info">
         <div class="device-name" title="${escapeHtml(data.name || 'Không tên')}">${escapeHtml(data.name || 'Không tên')}</div>
         <div class="device-chip-id">ID: ${chipId}</div>
       </div>
-      <div class="device-status ${isOnline ? 'online' : 'offline'}">
+      <div class="device-status ${statusClass}">
         <span class="status-dot"></span>
-        <span class="status-text">${isOnline ? 'Online' : 'Offline'}</span>
+        <span class="status-text">${statusText}</span>
       </div>
     </div>
+    <div class="device-details-section">
+      ${detailHtml}
+    </div>
     <div class="device-card-bottom">
-      <div class="device-meta">
-        ${data.ip ? 'IP: ' + data.ip : ''}
-        ${data.rssi ? ' • ' + data.rssi + 'dBm' : ''}
-      </div>
       <div class="device-actions">
         <button class="btn-icon device-delete-btn" onclick="showDeleteModal('${chipId}')" title="Xóa thiết bị">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -181,6 +298,7 @@ function createDeviceCard(chipId, data, isOnline) {
         <label class="toggle-switch">
           <input type="checkbox" 
                  ${data.state ? 'checked' : ''} 
+                 ${toggleDisabled}
                  onchange="toggleDevice('${chipId}', this.checked)"
                  id="toggle-${chipId}">
           <span class="toggle-slider"></span>
@@ -188,8 +306,6 @@ function createDeviceCard(chipId, data, isOnline) {
       </div>
     </div>
   `;
-
-  return card;
 }
 
 // ===== CẬP NHẬT DEVICE CARD =====
@@ -197,39 +313,11 @@ function updateDeviceCard(chipId, data, isOnline) {
   const card = document.getElementById('device-' + chipId);
   if (!card) return;
 
-  // Cập nhật class active
-  if (data.state) {
-    card.classList.add('active');
-  } else {
-    card.classList.remove('active');
-  }
+  // Cập nhật class
+  card.className = 'device-card' + (data.state ? ' active' : '') + (!isOnline ? ' offline-card' : '');
 
-  // Cập nhật tên
-  const nameEl = card.querySelector('.device-name');
-  if (nameEl) nameEl.textContent = data.name || 'Không tên';
-
-  // Cập nhật status
-  const statusEl = card.querySelector('.device-status');
-  if (statusEl) {
-    statusEl.className = 'device-status ' + (isOnline ? 'online' : 'offline');
-    const statusText = statusEl.querySelector('.status-text');
-    if (statusText) statusText.textContent = isOnline ? 'Online' : 'Offline';
-  }
-
-  // Cập nhật toggle (chỉ khi khác trạng thái hiện tại để tránh vòng lặp)
-  const toggle = document.getElementById('toggle-' + chipId);
-  if (toggle && toggle.checked !== data.state) {
-    toggle.checked = data.state;
-  }
-
-  // Cập nhật meta info
-  const metaEl = card.querySelector('.device-meta');
-  if (metaEl) {
-    let meta = '';
-    if (data.ip) meta += 'IP: ' + data.ip;
-    if (data.rssi) meta += (meta ? ' • ' : '') + data.rssi + 'dBm';
-    metaEl.textContent = meta;
-  }
+  // Rebuild nội dung card
+  card.innerHTML = buildCardHTML(chipId, data, isOnline);
 }
 
 // ===== XÓA DEVICE CARD =====
@@ -243,6 +331,15 @@ function removeDeviceCard(chipId) {
 
 // ===== BẬT/TẮT THIẾT BỊ =====
 function toggleDevice(chipId, newState) {
+  // Không cho phép toggle khi offline
+  const data = localDevices[chipId];
+  if (data && !isDeviceOnline(data)) {
+    showToast('Thiết bị đang mất kết nối. Không thể điều khiển.', 'error');
+    const toggle = document.getElementById('toggle-' + chipId);
+    if (toggle) toggle.checked = !newState;
+    return;
+  }
+
   db.ref('devices/' + chipId + '/state')
     .set(newState)
     .then(() => {
@@ -253,7 +350,6 @@ function toggleDevice(chipId, newState) {
     })
     .catch((err) => {
       showToast('Lỗi: ' + err.message, 'error');
-      // Revert toggle
       const toggle = document.getElementById('toggle-' + chipId);
       if (toggle) toggle.checked = !newState;
     });
@@ -263,7 +359,7 @@ function toggleDevice(chipId, newState) {
 function updateStats() {
   const devices = Object.values(localDevices);
   const total = devices.length;
-  const online = devices.filter((d) => d.online === true).length;
+  const online = devices.filter((d) => isDeviceOnline(d)).length;
   const active = devices.filter((d) => d.state === true).length;
 
   statTotal.textContent = total;
@@ -302,11 +398,9 @@ addDeviceForm.addEventListener('submit', async (e) => {
   addDeviceError.style.display = 'none';
 
   try {
-    // Kiểm tra thiết bị đã tồn tại trên Firebase chưa
     const deviceSnap = await db.ref('devices/' + chipId).once('value');
 
     if (!deviceSnap.exists()) {
-      // Thiết bị chưa được ESP đăng ký → tạo entry mới (ESP sẽ update khi online)
       await db.ref('devices/' + chipId).set({
         chipId: chipId,
         name: name,
@@ -317,21 +411,17 @@ addDeviceForm.addEventListener('submit', async (e) => {
         pin: 0
       });
     } else {
-      // Thiết bị đã được ESP đăng ký → kiểm tra owner
       const deviceData = deviceSnap.val();
       if (deviceData.owner && deviceData.owner !== currentUser.uid) {
         throw new Error('Thiết bị này đã thuộc về tài khoản khác.');
       }
-      // Cập nhật owner và tên
       await db.ref('devices/' + chipId).update({
         owner: currentUser.uid,
         name: name
       });
     }
 
-    // Thêm vào danh sách thiết bị của user
     await db.ref('user_devices/' + currentUser.uid + '/' + chipId).set(true);
-
     showToast('Đã thêm thiết bị: ' + name + ' 🎉', 'success');
     closeAddModal();
   } catch (error) {
@@ -356,7 +446,6 @@ function showDeleteModal(chipId) {
   deleteDeviceModal.style.display = 'flex';
 }
 
-// Đóng modal xóa
 document.querySelectorAll('.btn-close-delete-modal').forEach((btn) => {
   btn.addEventListener('click', () => {
     deleteDeviceModal.style.display = 'none';
@@ -378,12 +467,8 @@ btnConfirmDelete.addEventListener('click', async () => {
   const deviceName = localDevices[chipId]?.name || chipId;
 
   try {
-    // Xóa khỏi danh sách user
     await db.ref('user_devices/' + currentUser.uid + '/' + chipId).remove();
-
-    // Xóa dữ liệu thiết bị (tùy chọn - có thể giữ lại để ESP vẫn hoạt động)
     await db.ref('devices/' + chipId).remove();
-
     showToast('Đã xóa thiết bị: ' + deviceName, 'info');
   } catch (error) {
     showToast('Lỗi xóa: ' + error.message, 'error');
