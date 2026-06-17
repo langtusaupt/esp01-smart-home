@@ -963,6 +963,118 @@ body {
 .toast-error { border-left: 3px solid var(--danger); }
 .toast-info { border-left: 3px solid var(--accent); }
 
+/* ===== SENSOR CARD ===== */
+/* Card cảm biến — bố cục riêng, không có toggle switch */
+.sensor-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.4s ease;
+}
+
+.sensor-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+}
+
+.sensor-card:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.08);
+}
+
+.sensor-card.offline-card {
+  opacity: 0.7;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.sensor-card.offline-card::before {
+  background: linear-gradient(90deg, var(--danger), #f97316);
+  opacity: 0.6;
+}
+
+.sensor-card.offline-card:hover {
+  opacity: 0.85;
+}
+
+/* Phần giá trị cảm biến lớn */
+.sensor-values {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.sensor-value-block {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+.sensor-value-block + .sensor-value-block {
+  border-left: 1px solid var(--border);
+}
+
+.sensor-value-icon {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.sensor-value-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+.sensor-value-number.temp-value {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sensor-value-number.humid-value {
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sensor-value-unit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Animation khi dữ liệu mới cập nhật */
+@keyframes sensorPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.sensor-value-number.updated {
+  animation: sensorPulse 0.5s ease;
+}
+
+/* Stat cho sensor */
+.stat-sensor {
+  color: #10b981;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
   .auth-card {
